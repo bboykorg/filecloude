@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Главная</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="#007bff" class="bi bi-cloud" viewBox="0 0 16 16">
+      <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383"/>
+    </svg>
+    <h1>FilesCloud</h1>
+  </header>
+
+  <main>
+    <h2>Мои файлы</h2>
+    <div class="sidebar">
+    <ul>
+      <li><a href="#">Пункт меню 1</a></li>
+      <li><a href="#">Пункт меню 2</a></li>
+      <li><a href="#">Пункт меню 3</a></li>
+      <li><a href="#">Пункт меню 4</a></li>
+    </ul>
+  </div>
+    {% if files %}
+      <div class="files-container">
+        {% for file in files %}
+          <div class="file-card">
+            <div class="delete-btn" onclick="deleteFile('{{ file[1] }}')">&times;</div>
+            <img src="{{ url_for('uploaded_file', filename=file[1]) }}"
+               alt="{{ file[1] }}"
+               onclick="openModal({{ loop.index0 }})">
+            <p>{{ file[1] }}</p>
+            <a href="{{ url_for('download_file', filename=file[1]) }}" class="btn btn-primary">Скачать</a>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="text-align:center;">У вас пока нет загруженных файлов.</p>
+    {% endif %}
+
+    <div id="imageModal" class="modal">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <img class="modal-content" id="modalImg">
+      <div class="nav-btn prev" onclick="changeImage(-1)">&#10094;</div>
+      <div class="nav-btn next" onclick="changeImage(1)">&#10095;</div>
+    </div>
+
+    <div class="upload-bar">
+      <label for="fileInput" class="file-label">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-folder-plus" viewBox="0 0 16 16">
+          <path d="m.5 3 .04.87a2 2 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14H9v-1H2.826a1 1 0 0 1-.995-.91l-.637-7A1 1 0 0 1 2.19 4h11.62a1 1 0 0 1 .996 1.09L14.54 8h1.005l.256-2.819A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2"/>
+          <path d="M13.5 9a.5.5 0 0 1 .5.5V11h1.5a.5.5 0 1 1 0 1H14v1.5a.5.5 0 1 1-1 0V12h-1.5a.5.5 0 0 1 0-1H13V9.5a.5.5 0 0 1 .5-.5"/>
+        </svg>
+      </label>
+      <button class="upload-btn" onclick="uploadFiles()">Загрузить</button>
+      <input type="file" id="fileInput" multiple>
+    </div>
+  </main>
+
+  <footer>
+    <h3>2025.korg dev.</h3>
+  </footer>
+
+  <script>
+    function uploadFiles() {
+      const input = document.getElementById('fileInput');
+      const files = input.files;
+
+      if (files.length === 0) {
+        alert('Пожалуйста, выберите файлы.');
+        return;
+      }
+
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      fetch('upload', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Файлы успешно загружены:', data);
+        location.reload();
+      })
+      .catch(error => {
+        console.error('Ошибка загрузки:', error);
+      });
+    }
+    let currentIndex = 0;
+    let images = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      images = Array.from(document.querySelectorAll(".files-container img"));
+    });
+
+    function openModal(index) {
+      currentIndex = index;
+      document.getElementById("imageModal").style.display = "block";
+      showImage(currentIndex);
+    }
+
+    function closeModal() {
+      document.getElementById("imageModal").style.display = "none";
+    }
+
+    function changeImage(step) {
+      currentIndex += step;
+      if (currentIndex < 0) currentIndex = images.length - 1;
+      if (currentIndex >= images.length) currentIndex = 0;
+      showImage(currentIndex);
+    }
+
+    function showImage(index) {
+      const modalImg = document.getElementById("modalImg");
+      modalImg.src = images[index].src;
+    }
+    function deleteFile(filename) {
+    if (!confirm("Удалить файл " + filename + "?")) return;
+
+    fetch("/delete/" + filename, {
+      method: "DELETE"
+    })
+    .then(response => {
+      if (response.ok) {
+        location.reload(); // обновляем список
+      } else {
+        alert("Ошибка при удалении файла!");
+      }
+    })
+    .catch(err => console.error(err));
+  }
+  </script>
+</body>
+</html>
