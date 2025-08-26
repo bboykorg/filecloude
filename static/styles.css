@@ -192,7 +192,7 @@ body {
 .next { right: 20px; }
 
 .file-card {
-  position: relative; /* нужно для позиционирования кнопки */
+  position: relative;
 }
 
 .delete-btn {
@@ -215,4 +215,76 @@ body {
 
 .delete-btn:hover {
   background: rgba(200, 0, 0, 1);
+}
+
+.auth-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+}
+
+.auth-box {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  padding: 40px;
+  width: 350px;
+  text-align: center;
+  transition: transform 0.3s;
+}
+
+.auth-box:hover {
+  transform: translateY(-5px);
+}
+
+.auth-box h2 {
+  margin-bottom: 20px;
+  color: #007bff;
+}
+
+.auth-box input {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border 0.3s;
+}
+
+.auth-box input:focus {
+  border: 1px solid #007bff;
+  outline: none;
+}
+
+.auth-box button {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+  margin-top: 10px;
+}
+
+.auth-box button:hover {
+  background: #0056b3;
+  transform: scale(1.05);
+}
+
+.auth-box a {
+  display: block;
+  margin-top: 15px;
+  color: #007bff;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.auth-box a:hover {
+  text-decoration: underline;
 }
