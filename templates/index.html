@@ -15,22 +15,51 @@
 
   <main>
     <h2>Мои файлы</h2>
-    {% if files %}
-      <div class="files-container">
+    <div class="upload-info file-card" style="margin-left: 20px;">
+      <p>Использовано: {{ total_size }} из {{ max_size }}</p>
+      <progress value="{{ total_size }}" max="{{ max_size }}"></progress>
+    </div>
+
+    <div class="files-container">
+      <div class="file-card upload-card">
+        <label for="fileInput" class="file-label">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-folder-plus" viewBox="0 0 16 16">
+            <path d="m.5 3 .04.87a2 2 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14H9v-1H2.826a1 1 0 0 1-.995-.91l-.637-7A1 1 0 0 1 2.19 4h11.62a1 1 0 0 1 .996 1.09L14.54 8h1.005l.256-2.819A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2"/>
+            <path d="M13.5 9a.5.5 0 0 1 .5.5V11h1.5a.5.5 0 1 1 0 1H14v1.5a.5.5 0 1 1-1 0V12h-1.5a.5.5 0 0 1 0-1H13V9.5a.5.5 0 0 1 .5-.5"/>
+          </svg>
+          <span>Выбрать файлы</span>
+        </label>
+        <input type="file" id="fileInput" multiple style="display:none;" onchange="uploadFiles()">
+      </div>
+
+      {% if files %}
         {% for file in files %}
           <div class="file-card">
             <div class="delete-btn" onclick="deleteFile('{{ file[1] }}')">&times;</div>
-            <img src="{{ url_for('uploaded_file', filename=file[1]) }}"
-               alt="{{ file[1] }}"
-               onclick="openModal({{ loop.index0 }})">
+
+            {% set ext = file[1].split('.')[-1].lower() %}
+
+            {% if ext in ['png','jpg','jpeg','gif'] %}
+              <img src="{{ url_for('download_file', filename=file[1]) }}" alt="{{ file[1] }}" onclick="openModal({{ loop.index0 }})">
+            {% elif ext in ['mp4','webm','ogg'] %}
+              <video controls width="200">
+                <source src="{{ url_for('download_file', filename=file[1]) }}" type="video/{{ ext }}">
+                Ваш браузер не поддерживает видео.
+              </video>
+            {% elif ext in ['txt','md'] %}
+              <pre class="text-file-preview">{{ file[1] }}</pre>
+            {% else %}
+              <p>{{ file[1] }}</p>
+            {% endif %}
+
             <p>{{ file[1] }}</p>
             <a href="{{ url_for('download_file', filename=file[1]) }}" class="btn btn-primary">Скачать</a>
           </div>
         {% endfor %}
-      </div>
-    {% else %}
-      <p style="text-align:center;">У вас пока нет загруженных файлов.</p>
-    {% endif %}
+      {% else %}
+        <p style="text-align:center;">У вас пока нет загруженных файлов.</p>
+      {% endif %}
+    </div>
 
     <div id="imageModal" class="modal">
       <span class="close" onclick="closeModal()">&times;</span>
@@ -39,16 +68,6 @@
       <div class="nav-btn next" onclick="changeImage(1)">&#10095;</div>
     </div>
 
-    <div class="upload-bar">
-      <label for="fileInput" class="file-label">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-folder-plus" viewBox="0 0 16 16">
-          <path d="m.5 3 .04.87a2 2 0 0 0-.342 1.311l.637 7A2 2 0 0 0 2.826 14H9v-1H2.826a1 1 0 0 1-.995-.91l-.637-7A1 1 0 0 1 2.19 4h11.62a1 1 0 0 1 .996 1.09L14.54 8h1.005l.256-2.819A2 2 0 0 0 13.81 3H9.828a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 6.172 1H2.5a2 2 0 0 0-2 2"/>
-          <path d="M13.5 9a.5.5 0 0 1 .5.5V11h1.5a.5.5 0 1 1 0 1H14v1.5a.5.5 0 1 1-1 0V12h-1.5a.5.5 0 0 1 0-1H13V9.5a.5.5 0 0 1 .5-.5"/>
-        </svg>
-      </label>
-      <button class="upload-btn" onclick="uploadFiles()">Загрузить</button>
-      <input type="file" id="fileInput" multiple>
-    </div>
   </main>
 
   <footer>
@@ -56,76 +75,75 @@
   </footer>
 
   <script>
-    function uploadFiles() {
-      const input = document.getElementById('fileInput');
-      const files = input.files;
+function uploadFiles() {
+  const input = document.getElementById('fileInput');
+  const files = input.files;
 
-      if (files.length === 0) {
-        alert('Пожалуйста, выберите файлы.');
-        return;
-      }
+  if (files.length === 0) return;
 
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i]);
-      }
-
-      fetch('upload', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.json())
-      .then(data => {
-        console.log('Файлы успешно загружены:', data);
-        location.reload();
-      })
-      .catch(error => {
-        console.error('Ошибка загрузки:', error);
-      });
-    }
-    let currentIndex = 0;
-    let images = [];
-
-    document.addEventListener("DOMContentLoaded", () => {
-      images = Array.from(document.querySelectorAll(".files-container img"));
-    });
-
-    function openModal(index) {
-      currentIndex = index;
-      document.getElementById("imageModal").style.display = "block";
-      showImage(currentIndex);
-    }
-
-    function closeModal() {
-      document.getElementById("imageModal").style.display = "none";
-    }
-
-    function changeImage(step) {
-      currentIndex += step;
-      if (currentIndex < 0) currentIndex = images.length - 1;
-      if (currentIndex >= images.length) currentIndex = 0;
-      showImage(currentIndex);
-    }
-
-    function showImage(index) {
-      const modalImg = document.getElementById("modalImg");
-      modalImg.src = images[index].src;
-    }
-    function deleteFile(filename) {
-    if (!confirm("Удалить файл " + filename + "?")) return;
-
-    fetch("/delete/" + filename, {
-      method: "DELETE"
-    })
-    .then(response => {
-      if (response.ok) {
-        location.reload(); // обновляем список
-      } else {
-        alert("Ошибка при удалении файла!");
-      }
-    })
-    .catch(err => console.error(err));
+  const formData = new FormData();
+  for (let i = 0; i < files.length; i++) {
+    formData.append('files', files[i]);
   }
-  </script>
+
+  fetch('upload', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('Файлы успешно загружены:', data);
+    location.reload();
+  })
+  .catch(error => {
+    console.error('Ошибка загрузки:', error);
+  });
+}
+
+let currentIndex = 0;
+let images = [];
+
+document.addEventListener("DOMContentLoaded", () => {
+  images = Array.from(document.querySelectorAll(".files-container img"));
+});
+
+function openModal(index) {
+  currentIndex = index;
+  document.getElementById("imageModal").style.display = "block";
+  showImage(currentIndex);
+}
+
+function closeModal() {
+  document.getElementById("imageModal").style.display = "none";
+}
+
+function changeImage(step) {
+  currentIndex += step;
+  if (currentIndex < 0) currentIndex = images.length - 1;
+  if (currentIndex >= images.length) currentIndex = 0;
+  showImage(currentIndex);
+}
+
+function showImage(index) {
+  const modalImg = document.getElementById("modalImg");
+  modalImg.src = images[index].src;
+}
+
+function deleteFile(filename) {
+  if (!confirm("Удалить файл " + filename + "?")) return;
+
+  fetch("/delete/" + filename, {
+    method: "DELETE"
+  })
+  .then(response => {
+    if (response.ok) {
+      location.reload();
+    } else {
+      alert("Ошибка при удалении файла!");
+    }
+  })
+  .catch(err => console.error(err));
+}
+</script>
 </body>
 </html>
