@@ -17,7 +17,6 @@ path = environ.get('PathToDirectory') or os.path.join(os.path.dirname(__file__),
 os.makedirs(path, exist_ok=True)
 app.config['path'] = path
 
-# Лимит на суммарный объём файлов пользователя (10 GB)
 MAX_BYTES = 15 * 1024 * 1024 * 1024  # 10 ГБ
 
 
@@ -26,9 +25,6 @@ def get_db_connection():
 
 
 def sizeof_fmt(num, suffix='B'):
-    """
-    Человекочитаемый формат для байтов.
-    """
     if num is None:
         return "0 B"
     for unit in ['', 'K', 'M', 'G', 'T', 'P']:
@@ -39,10 +35,6 @@ def sizeof_fmt(num, suffix='B'):
 
 
 def get_user_files_size(id_user):
-    """
-    Возвращает суммарный размер всех файлов пользователя в байтах.
-    Проходит через список файлов в БД и берёт реальный размер на диске.
-    """
     total_size = 0
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
@@ -70,7 +62,6 @@ def index():
             cursor.execute('SELECT "ID" FROM "users" WHERE "name"=%s', (session["username"],))
             row = cursor.fetchone()
             if not row:
-                # На случай, если пользователь в сессии, но в БД нет такой записи
                 return redirect(url_for("login"))
             id_user = row[0]
 
@@ -82,7 +73,6 @@ def index():
     max_bytes = MAX_BYTES
     max_size = sizeof_fmt(max_bytes)
 
-    # Передаём и человекочитаемый формат, и байты (байты нужны для progress в шаблоне)
     return render_template("index.html",
                            files=files,
                            total_bytes=total_bytes,
@@ -135,10 +125,6 @@ def login():
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    """
-    Обработка загрузки: перед сохранением проверяем суммарный размер файлов у пользователя
-    и размер добавляемых файлов. Если превысит MAX_BYTES — отклоняем загрузку.
-    """
     if "username" not in session:
         return redirect(url_for("login"))
 
@@ -157,22 +143,17 @@ def upload_file():
                 return jsonify({"error": "Пользователь не найден"}), 400
             id_user = row[0]
 
-    # текущий использованный размер
     total_size = get_user_files_size(id_user)
 
     saved_files = []
-    # проверяем суммарный размер выбранных файлов
     total_new_size = 0
     file_sizes = []
     for f in uploaded_files:
-        # вычисляем размер файла без сохранения (через stream)
         try:
-            # FileStorage: перемещаем указатель в конец и берём позицию
             f.stream.seek(0, os.SEEK_END)
             size = f.stream.tell()
             f.stream.seek(0)
         except Exception:
-            # fallback: если не получилось, попытаться использовать content_length
             size = getattr(f, 'content_length', 0) or 0
         file_sizes.append(size)
         total_new_size += size
@@ -184,7 +165,6 @@ def upload_file():
             "max_bytes": MAX_BYTES
         }), 413
 
-    # Сохраняем файлы
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             for idx, f in enumerate(uploaded_files):
