@@ -1,10 +1,9 @@
 import os
 import psycopg2
 from os import environ
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_from_directory, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-
 
 app = Flask(__name__)
 app.secret_key = environ.get("APP_SECRET")
@@ -14,12 +13,51 @@ DB_NAME = environ.get('DB_NAME')
 DB_USER = environ.get('DB_USER')
 DB_PASS = environ.get('DB_PASS')
 
-path = environ.get('PathToDirectory')
+path = environ.get('PathToDirectory') or os.path.join(os.path.dirname(__file__), 'uploads')
+os.makedirs(path, exist_ok=True)
 app.config['path'] = path
+
+# Лимит на суммарный объём файлов пользователя (10 GB)
+MAX_BYTES = 15 * 1024 * 1024 * 1024  # 10 ГБ
 
 
 def get_db_connection():
     return psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
+
+
+def sizeof_fmt(num, suffix='B'):
+    """
+    Человекочитаемый формат для байтов.
+    """
+    if num is None:
+        return "0 B"
+    for unit in ['', 'K', 'M', 'G', 'T', 'P']:
+        if abs(num) < 1024.0:
+            return f"{num:.2f} {unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.2f}P{suffix}"
+
+
+def get_user_files_size(id_user):
+    """
+    Возвращает суммарный размер всех файлов пользователя в байтах.
+    Проходит через список файлов в БД и берёт реальный размер на диске.
+    """
+    total_size = 0
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT "filename" FROM "files" WHERE "ID_user"=%s', (id_user,))
+            rows = cursor.fetchall()
+            for row in rows:
+                filename = row[0]
+                filepath = os.path.join(app.config['path'], filename)
+                if os.path.exists(filepath):
+                    try:
+                        total_size += os.path.getsize(filepath)
+                    except OSError:
+                        # если по какой-то причине файл недоступен — пропускаем
+                        pass
+    return total_size
 
 
 @app.route("/")
@@ -30,12 +68,27 @@ def index():
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute('SELECT "ID" FROM "users" WHERE "name"=%s', (session["username"],))
-            id_user = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            if not row:
+                # На случай, если пользователь в сессии, но в БД нет такой записи
+                return redirect(url_for("login"))
+            id_user = row[0]
 
             cursor.execute('SELECT "ID", "filename" FROM "files" WHERE "ID_user"=%s', (id_user,))
             files = cursor.fetchall()
 
-    return render_template("index.html", files=files)
+    total_bytes = get_user_files_size(id_user)
+    total_size = sizeof_fmt(total_bytes)
+    max_bytes = MAX_BYTES
+    max_size = sizeof_fmt(max_bytes)
+
+    # Передаём и человекочитаемый формат, и байты (байты нужны для progress в шаблоне)
+    return render_template("index.html",
+                           files=files,
+                           total_bytes=total_bytes,
+                           total_size=total_size,
+                           max_bytes=max_bytes,
+                           max_size=max_size)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -82,27 +135,74 @@ def login():
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
+    """
+    Обработка загрузки: перед сохранением проверяем суммарный размер файлов у пользователя
+    и размер добавляемых файлов. Если превысит MAX_BYTES — отклоняем загрузку.
+    """
     if "username" not in session:
         return redirect(url_for("login"))
 
     if "files" not in request.files:
-        return "Нет файлов"
+        return jsonify({"error": "Нет файлов"}), 400
 
     uploaded_files = request.files.getlist("files")
-    saved_files = []
+    if not uploaded_files:
+        return jsonify({"error": "Нет файлов"}), 400
 
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute('SELECT "ID" FROM "users" WHERE "name"=%s', (session["username"],))
-            id_user = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({"error": "Пользователь не найден"}), 400
+            id_user = row[0]
 
-            for file in uploaded_files:
-                if file.filename == "":
+    # текущий использованный размер
+    total_size = get_user_files_size(id_user)
+
+    saved_files = []
+    # проверяем суммарный размер выбранных файлов
+    total_new_size = 0
+    file_sizes = []
+    for f in uploaded_files:
+        # вычисляем размер файла без сохранения (через stream)
+        try:
+            # FileStorage: перемещаем указатель в конец и берём позицию
+            f.stream.seek(0, os.SEEK_END)
+            size = f.stream.tell()
+            f.stream.seek(0)
+        except Exception:
+            # fallback: если не получилось, попытаться использовать content_length
+            size = getattr(f, 'content_length', 0) or 0
+        file_sizes.append(size)
+        total_new_size += size
+
+    if total_size + total_new_size > MAX_BYTES:
+        return jsonify({
+            "error": "Превышен лимит хранения. Загрузка отклонена.",
+            "used_bytes": total_size,
+            "max_bytes": MAX_BYTES
+        }), 413
+
+    # Сохраняем файлы
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            for idx, f in enumerate(uploaded_files):
+                if f.filename == "":
                     continue
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['path'], filename)
+                filename = secure_filename(f.filename)
 
-                file.save(filepath)
+                # если файл с таким именем уже существует на диске, добавим суффикс чтобы не перезаписать
+                dest = os.path.join(app.config['path'], filename)
+                base, ext = os.path.splitext(filename)
+                counter = 1
+                while os.path.exists(dest):
+                    filename = f"{base}_{counter}{ext}"
+                    dest = os.path.join(app.config['path'], filename)
+                    counter += 1
+
+                f.save(dest)
+
                 cursor.execute(
                     'INSERT INTO "files" ("ID_user", "filename") VALUES (%s, %s)',
                     (id_user, filename)
@@ -111,11 +211,20 @@ def upload_file():
 
             conn.commit()
 
-    return {"saved": saved_files}
+    new_total = get_user_files_size(id_user)
+    return jsonify({
+        "saved": saved_files,
+        "used_bytes": new_total,
+        "used_readable": sizeof_fmt(new_total),
+        "max_bytes": MAX_BYTES,
+        "max_readable": sizeof_fmt(MAX_BYTES)
+    })
+
 
 @app.route("/uploads/<filename>")
 def uploaded_file(filename):
     return send_from_directory(app.config['path'], filename)
+
 
 @app.route("/getting", methods=["GET"])
 def getting_files():
@@ -125,12 +234,16 @@ def getting_files():
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute('SELECT "ID" FROM "users" WHERE "name"=%s', (session["username"],))
-            id_user = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            if not row:
+                return redirect(url_for("login"))
+            id_user = row[0]
 
             cursor.execute('SELECT "ID", "filename" FROM "files" WHERE "ID_user"=%s', (id_user,))
             files = cursor.fetchall()
 
     return render_template("files.html", files=files)
+
 
 @app.route("/delete/<filename>", methods=["DELETE"])
 def delete_file(filename):
@@ -140,7 +253,10 @@ def delete_file(filename):
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute('SELECT "ID" FROM "users" WHERE "name"=%s', (session["username"],))
-            id_user = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            if not row:
+                return "Unauthorized", 401
+            id_user = row[0]
 
             cursor.execute('DELETE FROM "files" WHERE "ID_user"=%s AND "filename"=%s',
                            (id_user, filename))
@@ -148,9 +264,13 @@ def delete_file(filename):
 
     filepath = os.path.join(app.config['path'], filename)
     if os.path.exists(filepath):
-        os.remove(filepath)
+        try:
+            os.remove(filepath)
+        except OSError:
+            pass
 
     return "Deleted", 200
+
 
 @app.route("/download/<filename>", methods=["GET"])
 def download_file(filename):
@@ -160,7 +280,10 @@ def download_file(filename):
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute('SELECT "ID" FROM "users" WHERE "name"=%s', (session["username"],))
-            id_user = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            if not row:
+                return "Unauthorized", 401
+            id_user = row[0]
 
             cursor.execute('SELECT 1 FROM "files" WHERE "ID_user"=%s AND "filename"=%s',
                            (id_user, filename))
