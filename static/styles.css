@@ -1,133 +1,154 @@
 body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #89CFF0, #ffffff);
-      margin: 0;
-      padding: 0;
-    }
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #89CFF0, #ffffff);
+  margin: 0;
+  padding: 0;
+}
 
-    header {
-      display: flex;
-      justify-content: flex-start;
-      align-items: center;
-      gap: 15px;
-      padding: 10px 20px;
-      border-bottom: 2px solid #007bff;
-    }
+header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 20px;
+  border-bottom: 2px solid #007bff;
+}
 
-    header h1 {
-      margin: 0;
-      font-size: 2rem;
-      color: #007bff;
-    }
+header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #007bff;
+}
 
-    h2 {
-      text-align: center;
-      color: #333;
-    }
+h2 {
+  text-align: center;
+  color: #333;
+}
 
-    /* Галерея файлов */
-    .files-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      padding: 20px;
-      justify-content: flex-start;
-      align-items: flex-start;
-    }
+/* Галерея файлов */
+.files-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 20px;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
 
-    .file-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      padding: 10px;
-      width: 200px;
-      transition: transform 0.3s ease;
-    }
+.file-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  padding: 10px;
+  width: 200px;
+  transition: transform 0.3s ease;
+}
 
-    .file-card:hover {
-      transform: translateY(-5px);
-    }
+.file-card:hover {
+  transform: translateY(-5px);
+}
 
-    .file-card img {
-      border-radius: 8px;
-      max-width: 100%;
-      height: auto;
-    }
+.file-card img {
+  border-radius: 8px;
+  max-width: 100%;
+  height: auto;
+}
 
-    .file-card p {
-      margin-top: 10px;
-      font-size: 0.9rem;
-      color: #555;
-    }
+.file-card p {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #555;
+}
 
-    /* Панель загрузки */
-    .upload-bar {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 15px;
-      margin: 20px auto;
-    }
+.delete-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(255, 0, 0, 0.8);
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.3s;
+}
 
-    #fileInput {
-      display: none;
-    }
+.delete-btn:hover {
+  background: rgba(200, 0, 0, 1);
+}
 
-    .file-label {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 120px;
-      height: 120px;
-      border: 2px dashed #007bff;
-      border-radius: 12px;
-      cursor: pointer;
-      background: #e6f5ff;
-      transition: background 0.3s, transform 0.2s;
-    }
+/* Карточка загрузки файлов */
+.upload-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  padding: 10px;
+  border: 2px dashed #007bff;
+  border-radius: 12px;
+  background: #e6f5ff;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
 
-    .file-label:hover {
-      background: #d0ebff;
-      transform: scale(1.05);
-    }
+.upload-card:hover {
+  background: #d0ebff;
+  transform: scale(1.05);
+}
 
-    .file-label svg {
-      width: 60px;
-      height: 60px;
-      fill: #007bff;
-    }
+.upload-card .upload-btn {
+  margin-top: 10px;
+  width: 100%;
+}
 
-    .upload-btn {
-      padding: 12px 20px;
-      font-size: 1rem;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.3s, transform 0.2s;
-    }
+.file-label {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 120px;
+  height: 120px;
+  cursor: pointer;
+  background: #e6f5ff;
+}
 
-    .upload-btn:hover {
-      background: #0056b3;
-      transform: scale(1.05);
-    }
+.file-label:hover {
+  background: #d0ebff;
+  transform: scale(1.05);
+}
 
-    footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      padding: 15px;
-      background: #f0f8ff;
-      border-top: 1px solid #007bff;
-    }
+.file-label svg {
+  width: 60px;
+  height: 60px;
+  fill: #007bff;
+}
 
-    .modal {
+#fileInput {
+  display: none;
+}
+
+footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  padding: 15px;
+  background: #f0f8ff;
+  border-top: 1px solid #007bff;
+}
+
+/* Модальное окно */
+.modal {
   display: none;
   position: fixed;
   z-index: 9999;
@@ -141,14 +162,19 @@ body {
 }
 
 .modal-content {
-  margin: auto;
-  display: block;
-  max-width: 90%;
-  max-height: 80vh;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 90vw;
+  max-height: 90vh;
+  width: auto;
+  height: auto;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.5);
   animation: fadeIn 0.3s;
 }
+
 
 @keyframes fadeIn {
   from {opacity: 0;}
@@ -191,32 +217,7 @@ body {
 .prev { left: 20px; }
 .next { right: 20px; }
 
-.file-card {
-  position: relative;
-}
-
-.delete-btn {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  background: rgba(255, 0, 0, 0.8);
-  color: white;
-  font-size: 18px;
-  font-weight: bold;
-  border-radius: 50%;
-  width: 25px;
-  height: 25px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.delete-btn:hover {
-  background: rgba(200, 0, 0, 1);
-}
-
+/* Авторизация */
 .auth-container {
   flex: 1;
   display: flex;
@@ -287,4 +288,3 @@ body {
 
 .auth-box a:hover {
   text-decoration: underline;
-}
